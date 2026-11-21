@@ -1,0 +1,3 @@
+{"lat0":32.7345,"lon0":129.8605,"m_per_px":0.5,"tile_px":1024,"stride_px":768,"pitch_deg":45,"heading_deg":0,
+ "x0":-2250,"x1":2250,"v0":-1815,"v1":1987,
+ "note":"screen_x_m = east - x0 ; screen_v_m = north*sin(pitch)+height*cos(pitch); pixel = ((east-x0)/m_per_px, (v1-v)/m_per_px); east/north/height are metres in a local ENU frame at lat0/lon0 (height above WGS84 ellipsoid)"}
