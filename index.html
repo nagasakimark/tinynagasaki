@@ -6,7 +6,7 @@
 <title>ちいさな長崎 Tiny Nagasaki</title>
 <style>
   :root { --ink:#1d2b3a; --paper:#fffdf6; --accent:#ff7a45; --school:#2f7de1; --lm:#e0457b; }
-  html, body { margin:0; height:100%; overflow:hidden; background:#3b8fd0; font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", system-ui, sans-serif; }
+  html, body { margin:0; height:100%; overflow:hidden; background:linear-gradient(180deg,#a9dcff 0%,#cdeeff 55%,#b6e2ff 100%); font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", system-ui, sans-serif; }
   #map { position:absolute; inset:0; }
   .bar { position:absolute; top:10px; left:10px; display:flex; gap:8px; align-items:center; z-index:5; flex-wrap:wrap; max-width:calc(100% - 20px); }
   .title { background:var(--paper); color:var(--ink); padding:6px 12px; border-radius:14px; font-weight:800; font-size:18px; box-shadow:0 2px 0 rgba(0,0,0,.25); }
@@ -24,6 +24,10 @@
   .pin.lm .lbl { border-color:var(--lm); } .pin.lm .dot { background:var(--lm); }
   .pin.home .lbl { border-color:var(--accent); background:#fff3e8; } .pin.home .dot { background:var(--accent); }
   .hidden { display:none !important; }
+  .cloud { pointer-events:none; }
+  .cloud svg { width:100%; height:100%; overflow:visible; animation: drift var(--dur,9s) ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(var(--dx,2%), var(--dy,-3%)); } }
+  @media (prefers-reduced-motion: reduce) { .cloud svg { animation:none; } }
 </style>
 </head>
 <body>
@@ -42,11 +46,70 @@
 const PLACES = {"schools": [{"ja": "市立西泊中学校", "x": 1423.0, "y": 4069.4}, {"ja": "市立丸尾中学校", "x": 4027.1, "y": 1433.7}, {"ja": "市立飽浦小学校", "x": 3250.2, "y": 2386.0}, {"ja": "市立稲佐小学校", "x": 4577.2, "y": 455.6}, {"ja": "市立朝日小学校", "x": 4219.4, "y": 1286.8}, {"ja": "市立戸町小学校", "x": 5282.1, "y": 5958.7}, {"ja": "市立戸町中学校", "x": 5661.8, "y": 7052.7}, {"ja": "市立西坂小学校", "x": 6688.3, "y": 391.9}, {"ja": "市立梅香崎中学校", "x": 6688.0, "y": 3364.6}, {"ja": "私立海星高等学校", "x": 7025.9, "y": 3499.6}, {"ja": "市立大浦小学校", "x": 6524.1, "y": 4224.1}, {"ja": "私立海星中学校", "x": 7058.6, "y": 3678.7}, {"ja": "市立桜町小学校", "x": 8028.3, "y": 1263.7}, {"ja": "私立長崎女子商業高等学校", "x": 7752.2, "y": 1714.4}, {"ja": "市立仁田佐古小学校", "x": 7828.4, "y": 3091.1}, {"ja": "市立長崎中学校", "x": 8315.4, "y": 236.0}, {"ja": "市立諏訪小学校", "x": 8506.4, "y": 1999.6}, {"ja": "市立大浦中学校", "x": 8424.0, "y": 3991.2}], "landmarks": [{"ja": "稲佐山", "en": "Mt. Inasa", "x": 2176.5, "y": 395.1}, {"ja": "女神大橋", "en": "Megami Ohashi", "x": 2436.2, "y": 5984.6}, {"ja": "小菅修船場跡", "en": "Kosuge Slip Dock", "x": 4620.4, "y": 5007.0}, {"ja": "戸町", "en": "Tomachi", "x": 4569.4, "y": 5417.2}, {"ja": "新戸町", "en": "Shin-Tomachi", "x": 4554.5, "y": 7168.5}, {"ja": "グラバー邸", "en": "Glover House", "x": 6104.2, "y": 3924.9}, {"ja": "出島", "en": "Dejima", "x": 6828.3, "y": 2530.9}, {"ja": "大浦天主堂", "en": "Oura Church", "x": 6312.9, "y": 3926.1}, {"ja": "上戸町", "en": "Kami-Tomachi", "x": 6329.7, "y": 5455.3}, {"ja": "眼鏡橋", "en": "Megane-bashi", "x": 8175.1, "y": 1938.8}, {"ja": "小ヶ倉水源池", "en": "Kogakura Reservoir", "x": 7742.4, "y": 7035.5}]};
 const viewer = OpenSeadragon({
   id: 'map', tileSources: { Image: { xmlns: 'http://schemas.microsoft.com/deepzoom/2008', Url: 'tiles/map_files/', Format: 'jpg', Overlap: '1', TileSize: '256', Size: { Width: '8704', Height: '7936' } } }, prefixUrl: '',
-  showNavigationControl: false, maxZoomPixelRatio: 2.2, minZoomImageRatio: 0.9,
-  visibilityRatio: 0.6, constrainDuringPan: true, animationTime: 0.9, springStiffness: 8,
+  showNavigationControl: false, maxZoomPixelRatio: 2.2, minZoomImageRatio: 0.6,
+  visibilityRatio: 0.5, constrainDuringPan: true, animationTime: 0.9, springStiffness: 8,
   gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
   gestureSettingsTouch: { pinchRotate: false }
 });
+
+const MAP_W = 8704, MAP_H = 7936;
+// three cute cloud shapes: lists of puffs [cx, cy, r] in a 200x120 box
+const CLOUD_SHAPES = [
+  [[48,76,30],[82,52,36],[122,48,40],[158,72,30],[104,82,30],[70,86,24],[140,88,24]],
+  [[40,80,26],[70,58,32],[108,44,38],[146,60,32],[170,82,22],[96,86,28],[132,88,26]],
+  [[56,70,34],[100,46,42],[146,66,34],[80,88,26],[124,90,26],[30,88,20],[172,88,20]]
+];
+function cloudSVG(shape) {
+  const c = (dx, dy, fill, extra) => shape.map(([x, y, r]) => `<circle cx="${x + dx}" cy="${y + dy}" r="${r}" fill="${fill}" ${extra || ''}/>`).join('');
+  return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+    <g>${c(0, 9, '#9fc3e6')}</g>
+    <g>${c(0, 0, '#ffffff', 'stroke="#7fa6cf" stroke-width="7"')}</g>
+    <g>${c(0, 6, '#e3f1fb')}</g>
+    <g>${c(0, 0, '#ffffff')}</g>
+    <g opacity=".9">${shape.slice(0, 3).map(([x, y, r]) => `<ellipse cx="${x - r * .32}" cy="${y - r * .38}" rx="${r * .3}" ry="${r * .17}" fill="#ffffff"/>`).join('')}</g>
+  </svg>`;
+}
+function addClouds() {
+  let seed = 20261122;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const spots = [];
+  const ring = (inMin, inMax, sizeMin, sizeMax, step) => {
+    // walk around the map edge; each cloud sits a random distance outside the edge (negative = over the map)
+    const off = () => inMin + rnd() * (inMax - inMin);
+    for (let x = -800; x <= MAP_W + 800; x += step * (0.6 + rnd() * 0.8)) {
+      spots.push([x + (rnd() - .5) * step * .5, -off(), sizeMin, sizeMax]);
+      spots.push([x + (rnd() - .5) * step * .5, MAP_H + off(), sizeMin, sizeMax]);
+    }
+    for (let y = -400; y <= MAP_H + 400; y += step * (0.6 + rnd() * 0.8)) {
+      spots.push([-off(), y + (rnd() - .5) * step * .5, sizeMin, sizeMax]);
+      spots.push([MAP_W + off(), y + (rnd() - .5) * step * .5, sizeMin, sizeMax]);
+    }
+  };
+  ring(1300, 3200, 1700, 3400, 1700);  // big soft clouds out in the sky
+  ring(-120, 420, 800, 1800, 1000);    // clouds that drift a little over the map edge
+  for (let i = 0; i < 18; i++) {        // a few small stray puffs
+    const side = Math.floor(rnd() * 4), t = rnd(), d = 500 + rnd() * 2200;
+    const p = side === 0 ? [t * MAP_W, -d] : side === 1 ? [t * MAP_W, MAP_H + d] : side === 2 ? [-d, t * MAP_H] : [MAP_W + d, t * MAP_H];
+    spots.push([p[0], p[1], 450, 800]);
+  }
+  spots.sort((p, q) => (p[2] + p[3]) - (q[2] + q[3]) > 0 ? -1 : 1); // big ones underneath
+  for (const [cx, cy, a, b] of spots) {
+    const w = a + rnd() * (b - a), h = w * 0.65;
+    const el = document.createElement('div');
+    el.className = 'cloud';
+    el.innerHTML = cloudSVG(CLOUD_SHAPES[Math.floor(rnd() * CLOUD_SHAPES.length)]);
+    const svg = el.firstElementChild;
+    if (rnd() < 0.5) svg.style.scale = '-1 1';
+    svg.style.setProperty('--dur', (7 + rnd() * 6).toFixed(1) + 's');
+    svg.style.setProperty('--dx', ((rnd() - .5) * 6).toFixed(1) + '%');
+    svg.style.setProperty('--dy', (-1 - rnd() * 3).toFixed(1) + '%');
+    viewer.addOverlay({ element: el, location: viewer.viewport.imageToViewportRectangle(cx - w / 2, cy - h / 2, w, h) });
+  }
+}
+function showAll() {
+  const m = 0.07;
+  viewer.viewport.fitBounds(viewer.viewport.imageToViewportRectangle(-MAP_W * m, -MAP_H * m, MAP_W * (1 + 2 * m), MAP_H * (1 + 2 * m)));
+}
 const HOME = { x: 5450, y: 6450, w: 2200 };   // Tomachi, in map pixels
 const pins = { schools: [], places: [] };
 function vp(x, y) { return viewer.viewport.imageToViewportCoordinates(x, y); }
@@ -62,6 +125,7 @@ function addPin(list, cls, x, y, ja, en) {
   list.push(el);
 }
 viewer.addHandler('open', async () => {
+  addClouds();
   const d = PLACES;
   for (const s of d.schools) {
     const short = s.ja.replace(/^(市立|県立|私立)/, '');
@@ -78,7 +142,7 @@ function toggle(btn, list) {
 document.getElementById('bSchools').onclick = e => toggle(e.currentTarget, pins.schools);
 document.getElementById('bPlaces').onclick = e => toggle(e.currentTarget, pins.places);
 document.getElementById('bHome').onclick = goTomachi;
-document.getElementById('bAll').onclick = () => viewer.viewport.goHome();
+document.getElementById('bAll').onclick = showAll;
 document.getElementById('zIn').onclick = () => viewer.viewport.zoomBy(1.6);
 document.getElementById('zOut').onclick = () => viewer.viewport.zoomBy(1 / 1.6);
 </script>
